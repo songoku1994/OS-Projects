@@ -1,0 +1,206 @@
+      +-------------------------+
+			|          CS 140         |
+			|   PROJECT 1: THREADS    |
+			|   DESIGN DOCUMENT       |
+		  +-------------------------+ 
+				   
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+			     ALARM CLOCK
+			     ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+答：
+我们需要往定义thread的结构体中加进一个成员，用于记录该线程被加入到sleep list中的时间：
+int64_t sleep_ticks;
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe what happens in a call to timer_sleep(),
+>> including the effects of the timer interrupt handler.
+答：
+当调用timer_sleep的时候发生了以下的事情：
+1.将当前线程需要sleep的时间传入timer_sleep函数中
+2.关闭中端
+3.获取当前正在运行的线程，并将其sleep_ticks设置为传入函数的时间参数
+4.将线程阻塞，即调用thread_block
+5.将中断等级恢复到原来的状态
+注：第2步和第5步确保了中间的操作都是原子操作，无法中断
+当调用timer interrupt handler时：
+？？？？？？
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+答：
+？？？？？
+
+---- SYNCHRONIZATION ----
+
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+答：
+当timer_sleep里对线程进行阻塞操作的时候，中断都会被关闭，确保了操作的原子性。
+
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+答：
+同上，中断被暂时关闭，确保了操作的原子性。
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+答：
+这题的基本思路就是运用系统的时间中断来实现
+
+			 PRIORITY SCHEDULING
+			 ===================
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+答：
+我们在thread结构体中增加了三个新的成员：首先是记录初始优先级的originpriority；
+然后是list结构体变量lock_holding来记录当前持有的锁，因为可能一个线程同时持有多把锁，
+因此用一个list来存储；最后是lock_waiting用来记录当前正在等待的锁。
+int originpriority;
+struct lock* lock_waiting;
+struct list lock_holding;
+
+在lock结构体中增加了一个list_elem成员，方便将锁插入列表。
+struct list_elem elem;
+
+>> B2: Explain the data structure used to track priority donation.
+>> Use ASCII art to diagram a nested donation.  (Alternately, submit a
+>> .png file.)
+答：
+为了实现优先级继承，我们在thread结构体中添加了一个成员struct lock* lock_waiting，
+这个变量用于存储当前线程正在等待的锁。再加上结构体lock中已存在的struct thread* holder，
+就可以找到某线程正在等待的锁的当前持有线程，即需要继承优先级的线程。例如，A线程正要获取B锁，
+但是B锁当前已被C线程持有，这时候我们需要将A线程的优先级捐给C锁。
+
+
+
+
+
+
+我们在线程结构体中增加了originalpriority
+
+---- ALGORITHMS ----
+
+>> B3: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+将等待列表设定为一个根据优先级排序的队列，优先级大的排在前面。每次唤醒
+一个线程的时候，可以确保被唤醒的是优先级最大的那个线程。
+
+>> B4: Describe the sequence of events when a call to lock_acquire()
+>> causes a priority donation.  How is nested donation handled?
+
+>> B5: Describe the sequence of events when lock_release() is called
+>> on a lock that a higher-priority thread is waiting for.
+
+---- SYNCHRONIZATION ----
+
+>> B6: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?
+
+---- RATIONALE ----
+
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+			  ADVANCED SCHEDULER
+			  ==================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0
+ 4
+ 8
+12
+16
+20
+24
+28
+32
+36
+
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+
+>> C4: How is the way you divided the cost of scheduling between code
+>> inside and outside interrupt context likely to affect performance?
+
+---- RATIONALE ----
+
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+
+>> C6: The assignment explains arithmetic for fixed-point math in
+>> detail, but it leaves it open to you to implement it.  Why did you
+>> decide to implement it the way you did?  If you created an
+>> abstraction layer for fixed-point math, that is, an abstract data
+>> type and/or a set of functions or macros to manipulate fixed-point
+>> numbers, why did you do so?  If not, why not?
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?
